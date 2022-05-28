@@ -1,0 +1,107 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: S3 / Route53 / CloudFront CloudFormation configuration
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: The DNS name of an existing Amazon Route 53 hosted zone
+  BucketName:
+    Type: String
+    Description: Amazon S3 files bucket name
+  HostedZoneId:
+    Type: String
+    Description: Amazon Route53 Hosted Zone Id for DomainName
+  CertificateArn:
+    Type: String
+    Description: Certificate Link
+
+
+Resources:
+  CloudFrontIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${AWS::StackName}-s3-origin-oai
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  CloudFront:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref DomainName
+          - !Sub www.${DomainName}
+        Enabled: True
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - DELETE
+            - GET
+            - HEAD
+            - OPTIONS
+            - PATCH
+            - POST
+            - PUT
+          CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          ForwardedValues:
+            QueryString: True
+          TargetOriginId: !Sub S3-origin-${BucketName}
+          ViewerProtocolPolicy: redirect-to-https
+        HttpVersion: http2
+        Origins:
+          - DomainName: !GetAtt S3Bucket.DomainName
+            Id: !Sub S3-origin-${BucketName}
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontIdentity}
+        ViewerCertificate:
+          CertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          - Action:
+              - "s3:GetObject"
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontIdentity}
+            Resource: !Sub arn:aws:s3:::${S3Bucket}/*
+        Version: "2012-10-17"
+
+  Route53:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt CloudFront.DomainName
+        EvaluateTargetHealth: False
+        HostedZoneId: !Ref HostedZoneId
+      HostedZoneName: !Ref DomainName
+      Comment: 'Route'
+      Name: !Ref DomainName
+      Type: A
+
+Outputs:
+  Route53URL:
+    Value:        !Ref Route53
+    Description:  "route URL"
+  CloudFrontURL:
+    Value:        !GetAtt CloudFront.DomainName
+    Description:  "CloudFront URL"
+  CloudFrontID:
+    Value:        !GetAtt CloudFront.Id
+    Description:  "CloudFront ID"
