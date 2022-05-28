@@ -1,7 +1,5 @@
-
 AWSTemplateFormatVersion: 2010-09-09
 Description: S3 / Route53 / CloudFront CloudFormation configuration
-
 Parameters:
   DomainName:
     Type: String
@@ -15,15 +13,12 @@ Parameters:
   CertificateArn:
     Type: String
     Description: Certificate Link
-
-
 Resources:
   CloudFrontIdentity:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Sub ${AWS::StackName}-s3-origin-oai
-
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -33,7 +28,6 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-
   CloudFront:
     Type: "AWS::CloudFront::Distribution"
     Properties:
@@ -68,7 +62,6 @@ Resources:
         ViewerCertificate:
           CertificateArn: !Ref CertificateArn
           SslSupportMethod: sni-only
-
   S3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -82,7 +75,6 @@ Resources:
               AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontIdentity}
             Resource: !Sub arn:aws:s3:::${S3Bucket}/*
         Version: "2012-10-17"
-
   Route53:
     Type: AWS::Route53::RecordSet
     Properties:
@@ -94,7 +86,6 @@ Resources:
       Comment: 'Route'
       Name: !Ref DomainName
       Type: A
-
 Outputs:
   Route53URL:
     Value:        !Ref Route53
